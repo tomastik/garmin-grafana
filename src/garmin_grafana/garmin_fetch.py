@@ -35,7 +35,7 @@ if env_override:
 # %%
 INFLUXDB_VERSION = os.getenv("INFLUXDB_VERSION",'1') # Your influxdb database version (accepted values are '1' or '3')
 assert INFLUXDB_VERSION in ['1','3'], "Only InfluxDB version 1 or 3 is allowed - please ensure to set this value to either 1 or 3"
-INFLUXDB_HOST = os.getenv("INFLUXDB_HOST",'your.influxdb.hostname') # Required
+INFLUXDB_HOST = os.getenv("INFLUXDB_HOST",'localhost') # Required
 INFLUXDB_PORT = int(os.getenv("INFLUXDB_PORT", 8086)) # Required
 INFLUXDB_USERNAME = os.getenv("INFLUXDB_USERNAME", 'influxdb_username') # Required
 INFLUXDB_PASSWORD = os.getenv("INFLUXDB_PASSWORD", 'influxdb_access_password') # Required
@@ -151,11 +151,7 @@ def garmin_login():
     try:
         logging.info(f"Trying to login to Garmin Connect using token data from '{token_store}'...")
         garmin = Garmin()
-        result1, result2 = garmin.login(token_store)
-        if result1 == "needs_mfa":
-            raise GarminConnectAuthenticationError(
-                "MFA is required but credentials are not configured for interactive login"
-            )
+        garmin.login(token_store)
         logging.info("Login to Garmin Connect successful using stored session tokens.")
 
     except (FileNotFoundError, GarminConnectAuthenticationError, GarminConnectConnectionError):
@@ -164,19 +160,10 @@ def garmin_login():
             user_email = GARMINCONNECT_EMAIL or input("Enter Garminconnect Login e-mail: ")
             user_password = GARMINCONNECT_PASSWORD or input("Enter Garminconnect password (characters will be visible): ")
             garmin = Garmin(
-                email=user_email, password=user_password, is_cn=GARMINCONNECT_IS_CN, return_on_mfa=True
+                email=user_email, password=user_password, is_cn=GARMINCONNECT_IS_CN,
+                prompt_mfa=lambda: input("MFA one-time code (via email or SMS): "),
             )
-            result1, result2 = garmin.login(token_store)
-            if result1 == "needs_mfa":  # MFA is required
-                mfa_code = input("MFA one-time code (via email or SMS): ")
-                garmin.resume_login(result2, mfa_code)
-
-            # With return_on_mfa=True, library login can return before its internal token auto-dump path.
-            # Persist tokens explicitly so next run can restore from TOKEN_DIR.
-            if hasattr(garmin, "client") and hasattr(garmin.client, "dump"):
-                garmin.client.dump(token_store)
-            else:
-                raise GarminConnectConnectionError("Unable to persist Garmin session tokens: no supported dump method found")
+            garmin.login(token_store)
 
             logging.info(f"Oauth tokens stored in '{token_store}' for future use")
             logging.info("login to Garmin Connect successful using credentials and MFA (if enabled). Continuing with current run")
@@ -209,7 +196,7 @@ def write_points_to_influxdb(points):
         if len(points) != 0:
             if TAG_MEASUREMENTS_WITH_USER_EMAIL:
                 for item in points:
-                    item['tags'].update({'User_ID': garmin_obj.client.profile.get('userName','Unknown')})
+                    item['tags'].update({'User_ID': garmin_obj.display_name or 'Unknown'})
             # Write in chunks - Issue reported for large activities data containing >20000 points - Error 413 : payload too large
             for i in range(0, len(points), write_chunk_size):
                 if INFLUXDB_VERSION == '1':
