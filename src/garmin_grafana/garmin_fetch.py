@@ -43,8 +43,9 @@ INFLUXDB_DATABASE = os.getenv("INFLUXDB_DATABASE", 'GarminStats') # Required
 INFLUXDB_V3_ACCESS_TOKEN = os.getenv("INFLUXDB_V3_ACCESS_TOKEN",'') # InfluxDB V3 Access token, required only for InfluxDB V3
 INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", 'default') # required only for InfluxDB V3 
 TOKEN_DIR = os.getenv("TOKEN_DIR", "~/.garminconnect") # optional
-GARMINCONNECT_EMAIL = os.environ.get("GARMINCONNECT_EMAIL", None) # optional, asks in prompt on run if not provided
-GARMINCONNECT_PASSWORD = base64.b64decode(os.getenv("GARMINCONNECT_BASE64_PASSWORD")).decode("utf-8") if os.getenv("GARMINCONNECT_BASE64_PASSWORD") != None else None # optional, asks in prompt on run if not provided
+GARMINCONNECT_EMAIL = (os.environ.get("GARMINCONNECT_EMAIL") or "").strip() or None # optional, asks in prompt on run if not provided
+_garmin_pw_b64 = os.getenv("GARMINCONNECT_BASE64_PASSWORD")
+GARMINCONNECT_PASSWORD = base64.b64decode(_garmin_pw_b64).decode("utf-8").strip() if _garmin_pw_b64 else None # optional, asks in prompt on run if not provided
 GARMINCONNECT_IS_CN = True if os.getenv("GARMINCONNECT_IS_CN") in ['True', 'true', 'TRUE','t', 'T', 'yes', 'Yes', 'YES', '1'] else False # optional if you are using a Chinese account
 GARMIN_DEVICENAME = os.getenv("GARMIN_DEVICENAME", "Unknown")  # optional, attempts to set the name automatically if not given
 GARMIN_DEVICEID = os.getenv("GARMIN_DEVICEID", None)  # optional, attempts to set the id automatically if not given
@@ -136,8 +137,8 @@ def iter_days(start_date: str, end_date: str):
 
 # %%
 def garmin_login():
-    token_store = TOKEN_DIR
     token_store_expanded = os.path.expanduser(TOKEN_DIR)
+    token_store = token_store_expanded
     if os.path.isfile(token_store_expanded) and (not token_store_expanded.endswith('.json')):
         # New native client treats non-.json token paths as directories.
         # If a legacy file exists at this path, use a dedicated directory instead.
@@ -157,11 +158,11 @@ def garmin_login():
     except (FileNotFoundError, GarminConnectAuthenticationError, GarminConnectConnectionError):
         logging.warning("Session is expired or login information not present/incorrect. You'll need to log in again...login with your Garmin Connect credentials to generate them.")
         try:
-            user_email = GARMINCONNECT_EMAIL or input("Enter Garminconnect Login e-mail: ")
-            user_password = GARMINCONNECT_PASSWORD or input("Enter Garminconnect password (characters will be visible): ")
+            user_email = (GARMINCONNECT_EMAIL or "").strip() or input("Enter Garminconnect Login e-mail: ").strip()
+            user_password = (GARMINCONNECT_PASSWORD or "").strip() or input("Enter Garminconnect password (characters will be visible): ").strip()
             garmin = Garmin(
                 email=user_email, password=user_password, is_cn=GARMINCONNECT_IS_CN,
-                prompt_mfa=lambda: input("MFA one-time code (via email or SMS): "),
+                prompt_mfa=lambda: input("MFA one-time code (via email or SMS): ").strip(),
             )
             garmin.login(token_store)
 
