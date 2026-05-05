@@ -1057,7 +1057,7 @@ def fetch_activity_GPS(activityIDdict): # Uses FIT file by default, falls back t
                                     "ActivitySelector": activity_start_time.strftime('%Y%m%dT%H%M%SUTC-') + activity_type
                                 },
                                 "fields": {
-                                    "Index": int(session_record.get('message_index', -1)) + 1,
+                                    "Index": (int(v) if str(v := session_record.get('message_index', -1)).isdigit() else -1) + 1,
                                     "ActivityName": activity_type,
                                     "Activity_ID": activityID,
                                     "Sport": str(session_record.get('sport', None)), # Avoid partial write error 400 see #152#issuecomment-3084539416
