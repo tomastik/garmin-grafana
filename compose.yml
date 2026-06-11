@@ -82,7 +82,7 @@ services:
       - ./Grafana_Datasource:/etc/grafana/provisioning/datasources # (optional) Self provisioning influxdb datasource
       - ./Grafana_Dashboard:/etc/grafana/provisioning/dashboards # (optional) self provisioning grafana dashboard
     ports:
-      - '3000:3000'
+      - '3001:3000'
     image: 'grafana/grafana:latest'
 
 volumes:
